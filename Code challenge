@@ -1,0 +1,148 @@
+from sqlalchemy import Column, Integer, String, ForeignKey,MetaData
+from sqlalchemy.orm import relationship,session
+from sqlalchemy.ext.declarative import declarative_base
+
+convention = {
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+}
+metadata = MetaData(naming_convention=convention)
+
+# engine = create_engine('sqlite:///migrations_test.db')
+Base = declarative_base(metadata=metadata)
+
+class Restaurant(Base):
+    __tablename__ = 'restaurants'
+    id = Column(Integer(), primary_key=True)
+    name = Column(String())
+    price = Column(Integer())
+    reviews = relationship('Review', back_populates='restaurant')
+    
+    def __repr__(self):
+        return f'Restaurant(id={self.id},'+\
+            f'name={self.name},'+\
+            f'price={self.price})'
+    
+    def all_reviews(self):
+        reviews = []
+        for review in self.reviews:
+            customer_name = f"{review.customer.first_name} {review.customer.last_name}"
+            review_text = f"Review for {self.name} by {customer_name}: {review.star_rating} stars."
+            reviews.append(review_text)
+        return reviews
+    def fanciest(cls):
+        return session.query(cls).order_by(cls.price.desc()).first()
+
+class Customer(Base):
+    __tablename__ = 'customers'
+    id = Column(Integer(), primary_key=True)
+    first_name = Column(String())
+    last_name = Column(String())
+    reviews = relationship('Review', back_populates='customer')
+
+    def __repr__(self):
+        return f'Customer(id={self.id},'+\
+            f'first_name={self.first_name},'+\
+            f'last_name={self.last_name})'
+    def full_name(self):
+        full=f'{self.first_name}{self.last_name}'
+        return full
+    def favorite_restaurant(self):
+        # Get all reviews by this customer
+        customer_reviews = [review for review in self.reviews]
+        
+        # Find the highest rated restaurant among the customer's reviews
+        if customer_reviews:
+            highest_rated_review = max(customer_reviews, key=lambda x: x.star_rating)
+            return highest_rated_review.restaurant
+        else:
+            return None 
+        
+    def add_review(self, restaurant, rating):
+        new_review = Review(restaurant=restaurant, customer=self, star_rating=rating)
+        session.add(new_review)
+        session.commit()
+
+    def delete_reviews(self, restaurant):
+        # Get all reviews by this customer for the specified restaurant
+        reviews_to_delete = session.query(Review).filter_by(customer_id=self.id, restaurant_id=restaurant.id).all()
+        
+        # Delete the reviews
+        for review in reviews_to_delete:
+            session.delete(review)
+        session.commit()
+
+    
+class Review(Base):
+    __tablename__ = 'reviews'
+    id = Column(Integer(), primary_key=True)
+    star_rating = Column(Integer())
+    restaurant_id = Column(Integer(), ForeignKey('restaurants.id'))
+    customer_id = Column(Integer(), ForeignKey('customers.id'))
+    restaurant = relationship('Restaurant', back_populates='reviews')
+    customer = relationship('Customer', back_populates='reviews')
+
+    def __repr__(self):
+        return f'Review(id={self.id},'+\
+            f'star_rating={self.star_rating})'
+    # def full_review(self):
+    #     return f'Review for {Restaurant.name} by {Customer.first_name}+{Customer.last_name}: {Review.star_rating} stars'
+    #     #return f"Review for {self.restaurant.name} by {self.customer.first_name} {self.customer.last_name}: {self.star_rating} stars"
+    def full_review(self):
+        customer_name = f"{self.customer.first_name} {self.customer.last_name}"
+        return f"Review for {self.restaurant.name} by {customer_name}: {self.star_rating} stars"
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from model import Restaurant,Review,Customer
+
+
+if __name__ == '__main__':
+    # Assuming you've set up your database engine and session
+    engine = create_engine('sqlite:///migrations_test.db')
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    # Creating instances
+     
+    session.query(Review).delete()
+    session.query(Restaurant).delete()
+    session.query(Customer).delete()
+
+    restaurant1 = Restaurant(name='Koin ', price=500)
+    restaurant2 = Restaurant(name='Barclay', price=450)
+    restaurant3 = Restaurant(name='wagwan ', price=600)
+    restaurant4 = Restaurant(name='jungle', price=540)
+    restaurant5 = Restaurant(name='winoow ', price=700)
+    restaurant6 = Restaurant(name='Gozin', price=850)
+    restaurant7 = Restaurant(name='degozns ', price=200)
+    restaurant8 = Restaurant(name=' Wiper', price=350)
+
+ 
+
+    customer1 = Customer(first_name='John', last_name='Doe')
+    customer2 = Customer(first_name='Jane', last_name='Smith')
+    customer3 = Customer(first_name='joy', last_name='Doe')
+    customer4 = Customer(first_name='king', last_name='Smith')
+    customer5 = Customer(first_name='ban', last_name='Doe')
+    customer6 = Customer(first_name='Reso', last_name='Smith')
+    customer7 = Customer(first_name='Rose', last_name='Doe')
+    customer8 = Customer(first_name='Jaba', last_name='Smith')
+    customer9 = Customer(first_name='Jully', last_name='Doe')
+    customer10 = Customer(first_name='wire', last_name='Smith')
+    customer11= Customer(first_name='Bods', last_name='Doe')
+    customer12 = Customer(first_name='Waren', last_name='Smith')
+
+
+    review1 = Review(star_rating=5, restaurant=restaurant1, customer=customer11)
+    review2 = Review(star_rating=4, restaurant=restaurant2, customer=customer3)
+    review3 = Review(star_rating=7, restaurant=restaurant4, customer=customer4)
+    review4= Review(star_rating=6, restaurant=restaurant6, customer=customer5)
+    review5 = Review(star_rating=2, restaurant=restaurant8, customer=customer6)
+    review6 = Review(star_rating=9, restaurant=restaurant3, customer=customer7)
+    review7 = Review(star_rating=1, restaurant=restaurant1, customer=customer8)
+    review8 = Review(star_rating=9, restaurant=restaurant7, customer=customer12)
+    
+
+    # Adding instances to the session
+    session.add_all([restaurant1, restaurant2,restaurant3, restaurant4,restaurant5, restaurant6,restaurant7, restaurant8, customer1, customer2, customer3, customer7, customer5, customer6, customer7, customer8, customer9, customer10, customer11, customer12,review1, review2,review3, review4,review5, review6,review7, review8])
+
+    # Committing changes
+    session.commit()
